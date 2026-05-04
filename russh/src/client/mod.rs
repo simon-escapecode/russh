@@ -1807,6 +1807,13 @@ pub struct Config {
     pub maximum_packet_size: u32,
     /// Buffer size for each channel (a number of unprocessed messages to store before propagating backpressure to the TCP stream)
     pub channel_buffer_size: usize,
+    /// Maximum time the session loop will wait when forwarding an inbound
+    /// CHANNEL_DATA / CHANNEL_EXTENDED_DATA / CHANNEL_EOF / CHANNEL_CLOSE
+    /// message into a per-channel mpsc that the application has not drained.
+    /// On timeout the session ends with Error::ChannelSendTimeout instead of
+    /// parking the session task outside the top-level select, which would
+    /// otherwise silently disable the keepalive and inactivity arms.
+    pub channel_send_timeout: std::time::Duration,
     /// Lists of preferred algorithms.
     pub preferred: negotiation::Preferred,
     /// Time after which the connection is garbage-collected.
@@ -1836,6 +1843,7 @@ impl Default for Config {
             window_size: 2097152,
             maximum_packet_size: 32768,
             channel_buffer_size: 100,
+            channel_send_timeout: std::time::Duration::from_secs(30),
             preferred: Default::default(),
             inactivity_timeout: None,
             keepalive_interval: None,

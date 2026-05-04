@@ -397,8 +397,18 @@ impl Session {
                 // Forward the close to the channel before removing it, so that
                 // consumers waiting on `Channel::wait()` receive an explicit
                 // `ChannelMsg::Close` instead of just seeing `None`.
+                let timeout = self.common.config.channel_send_timeout;
                 if let Some(chan) = self.channels.get(&channel_num) {
-                    let _ = chan.send(ChannelMsg::Close).await;
+                    if chan
+                        .send_with_timeout(ChannelMsg::Close, timeout)
+                        .await
+                        .is_err()
+                    {
+                        warn!(
+                            "channel {channel_num:?} send timed out after {timeout:?} on CHANNEL_CLOSE. Ending session."
+                        );
+                        return Err(crate::Error::ChannelSendTimeout.into());
+                    }
                 }
                 self.channels.remove(&channel_num);
                 client.channel_close(channel_num, self).await
@@ -406,8 +416,18 @@ impl Session {
             Some((&msg::CHANNEL_EOF, mut r)) => {
                 debug!("channel_eof");
                 let channel_num = map_err!(ChannelId::decode(&mut r))?;
+                let timeout = self.common.config.channel_send_timeout;
                 if let Some(chan) = self.channels.get(&channel_num) {
-                    let _ = chan.send(ChannelMsg::Eof).await;
+                    if chan
+                        .send_with_timeout(ChannelMsg::Eof, timeout)
+                        .await
+                        .is_err()
+                    {
+                        warn!(
+                            "channel {channel_num:?} send timed out after {timeout:?} on CHANNEL_EOF. Ending session."
+                        );
+                        return Err(crate::Error::ChannelSendTimeout.into());
+                    }
                 }
                 client.channel_eof(channel_num, self).await
             }
@@ -447,8 +467,21 @@ impl Session {
                     }
                 }
 
+                let timeout = self.common.config.channel_send_timeout;
                 if let Some(chan) = self.channels.get(&channel_num) {
-                    let _ = chan.send(ChannelMsg::Data { data: data.clone() }).await;
+                    if chan
+                        .send_with_timeout(
+                            ChannelMsg::Data { data: data.clone() },
+                            timeout,
+                        )
+                        .await
+                        .is_err()
+                    {
+                        warn!(
+                            "channel {channel_num:?} send timed out after {timeout:?} on CHANNEL_DATA. Ending session."
+                        );
+                        return Err(crate::Error::ChannelSendTimeout.into());
+                    }
                 }
 
                 client.data(channel_num, &data, self).await
@@ -469,13 +502,24 @@ impl Session {
                     }
                 }
 
+                let timeout = self.common.config.channel_send_timeout;
                 if let Some(chan) = self.channels.get(&channel_num) {
-                    let _ = chan
-                        .send(ChannelMsg::ExtendedData {
-                            ext: extended_code,
-                            data: data.clone(),
-                        })
-                        .await;
+                    if chan
+                        .send_with_timeout(
+                            ChannelMsg::ExtendedData {
+                                ext: extended_code,
+                                data: data.clone(),
+                            },
+                            timeout,
+                        )
+                        .await
+                        .is_err()
+                    {
+                        warn!(
+                            "channel {channel_num:?} send timed out after {timeout:?} on CHANNEL_EXTENDED_DATA. Ending session."
+                        );
+                        return Err(crate::Error::ChannelSendTimeout.into());
+                    }
                 }
 
                 client

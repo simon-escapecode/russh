@@ -178,6 +178,13 @@ pub enum Error {
     #[error("Inactivity timeout")]
     InactivityTimeout,
 
+    /// The application failed to drain a per-channel mpsc within the
+    /// configured channel_send_timeout while the session loop was
+    /// forwarding an inbound packet to it. Returned to end the session
+    /// rather than allow the loop to park indefinitely.
+    #[error("Channel send timeout")]
+    ChannelSendTimeout,
+
     /// Missing authentication method.
     #[error("No authentication method")]
     NoAuthMethod,
